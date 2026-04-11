@@ -77,7 +77,8 @@
 - **Dashboard Widgets** — Currency converter and timezone clock, toggleable per user
 
 ### AI / MCP Integration
-- **MCP Server** — Built-in [Model Context Protocol](MCP.md) server exposes 80+ tools and 27 resources so AI assistants (Claude, Cursor, etc.) can read and modify your trips
+- **MCP Server** — Built-in [Model Context Protocol](MCP.md) server with OAuth 2.1 authentication exposes 80+ tools and 27 resources so AI assistants (Claude, Cursor, etc.) can read and modify your trips
+- **Granular Scopes** — 24 OAuth scopes across 13 permission groups let you control exactly what data your AI client can access
 - **Full Trip Automation** — AI can create trips, plan itineraries, build packing lists, manage budgets, send collab messages, mark countries visited, and more in a single conversation
 - **Prompts** — Pre-built `trip-summary`, `packing-list`, and `budget-overview` prompts give AI clients instant structured context
 - **Addon-Aware** — Atlas, Collab, and Vacay features are exposed automatically when those addons are enabled
@@ -97,7 +98,7 @@
 - **PWA**: vite-plugin-pwa + Workbox
 - **Real-Time**: WebSocket (`ws`)
 - **State**: Zustand
-- **Auth**: JWT + OIDC + TOTP (MFA)
+- **Auth**: JWT + OAuth 2.1 + OIDC + TOTP (MFA)
 - **Maps**: Leaflet + react-leaflet-cluster + Google Places API (optional)
 - **Weather**: Open-Meteo API (free, no key required)
 - **Icons**: lucide-react
@@ -166,8 +167,8 @@ services:
       # - DEMO_MODE=false # Enable demo mode (resets data hourly)
       # - ADMIN_EMAIL=admin@trek.local # Initial admin e-mail — only used on first boot when no users exist
       # - ADMIN_PASSWORD=changeme      # Initial admin password — only used on first boot when no users exist
-      # - MCP_RATE_LIMIT=60 # Max MCP API requests per user per minute (default: 60)
-      # - MCP_MAX_SESSION_PER_USER=5 # Max concurrent MCP sessions per user (default: 5)
+      # - MCP_RATE_LIMIT=300 # Max MCP API requests per user per minute (default: 300)
+      # - MCP_MAX_SESSION_PER_USER=20 # Max concurrent MCP sessions per user (default: 20)
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
@@ -311,8 +312,8 @@ trek.yourdomain.com {
 | `ADMIN_PASSWORD` | Password for the first admin account created on initial boot. Must be set together with `ADMIN_EMAIL`. | random |
 | **Other** | | |
 | `DEMO_MODE` | Enable demo mode (hourly data resets) | `false` |
-| `MCP_RATE_LIMIT` | Max MCP API requests per user per minute | `60` |
-| `MCP_MAX_SESSION_PER_USER` | Max concurrent MCP sessions per user | `5` |
+| `MCP_RATE_LIMIT` | Max MCP API requests per user per minute | `300` |
+| `MCP_MAX_SESSION_PER_USER` | Max concurrent MCP sessions per user | `20` |
 
 ## Optional API Keys
 

@@ -19,7 +19,8 @@ function runMigrations(db: Database.Database): void {
     }
   }
 
-  const migrations: Array<() => void> = [
+  type Migration = (() => void) | { raw: () => void };
+  const migrations: Migration[] = [
     () => db.exec('ALTER TABLE users ADD COLUMN unsplash_api_key TEXT'),
     () => db.exec('ALTER TABLE users ADD COLUMN openweather_api_key TEXT'),
     () => db.exec('ALTER TABLE places ADD COLUMN duration_minutes INTEGER DEFAULT 60'),
@@ -884,13 +885,106 @@ function runMigrations(db: Database.Database): void {
         ins.run(r.trip_id, r.category, idx++);
       }
     },
+    // Migration: OAuth 2.1 clients, consents, and tokens for MCP
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS oauth_clients (
+          id                 TEXT PRIMARY KEY,
+          user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name               TEXT NOT NULL,
+          client_id          TEXT UNIQUE NOT NULL,
+          client_secret_hash TEXT NOT NULL,
+          redirect_uris      TEXT NOT NULL DEFAULT '[]',
+          allowed_scopes     TEXT NOT NULL DEFAULT '[]',
+          created_at         DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_oauth_clients_user ON oauth_clients(user_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_clients_client_id ON oauth_clients(client_id);
+
+        CREATE TABLE IF NOT EXISTS oauth_consents (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          client_id  TEXT NOT NULL REFERENCES oauth_clients(client_id) ON DELETE CASCADE,
+          user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          scopes     TEXT NOT NULL DEFAULT '[]',
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(client_id, user_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS oauth_tokens (
+          id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+          client_id                 TEXT NOT NULL REFERENCES oauth_clients(client_id) ON DELETE CASCADE,
+          user_id                   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          access_token_hash         TEXT UNIQUE NOT NULL,
+          refresh_token_hash        TEXT UNIQUE NOT NULL,
+          scopes                    TEXT NOT NULL DEFAULT '[]',
+          access_token_expires_at   DATETIME NOT NULL,
+          refresh_token_expires_at  DATETIME NOT NULL,
+          revoked_at                DATETIME,
+          created_at                DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_oauth_tokens_user ON oauth_tokens(user_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_tokens_access  ON oauth_tokens(access_token_hash);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_tokens_refresh ON oauth_tokens(refresh_token_hash);
+      `);
+    },
+    // Migration: Refresh-token rotation chain tracking for replay detection
+    () => {
+      db.exec(`
+        ALTER TABLE oauth_tokens ADD COLUMN parent_token_id INTEGER REFERENCES oauth_tokens(id);
+        CREATE INDEX IF NOT EXISTS idx_oauth_tokens_parent ON oauth_tokens(parent_token_id);
+      `);
+    },
+    // Migration: Public client support for browser-initiated dynamic registration (DCR)
+    () => {
+      db.exec(`
+        ALTER TABLE oauth_clients ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE oauth_clients ADD COLUMN created_via TEXT NOT NULL DEFAULT 'settings_ui';
+      `);
+    },
+    // Migration: Make oauth_clients.user_id nullable to support anonymous RFC 7591 DCR clients
+    // (must run outside a transaction because PRAGMA foreign_keys cannot change mid-transaction)
+    {
+      raw: () => {
+        db.exec('PRAGMA foreign_keys = OFF');
+        try {
+          db.transaction(() => {
+            db.exec(`
+              CREATE TABLE IF NOT EXISTS oauth_clients_new (
+                id                 TEXT PRIMARY KEY,
+                user_id            INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                name               TEXT NOT NULL,
+                client_id          TEXT UNIQUE NOT NULL,
+                client_secret_hash TEXT NOT NULL,
+                redirect_uris      TEXT NOT NULL DEFAULT '[]',
+                allowed_scopes     TEXT NOT NULL DEFAULT '[]',
+                created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+                is_public          INTEGER NOT NULL DEFAULT 0,
+                created_via        TEXT NOT NULL DEFAULT 'settings_ui'
+              )
+            `);
+            db.exec(`INSERT INTO oauth_clients_new SELECT id, user_id, name, client_id, client_secret_hash, redirect_uris, allowed_scopes, created_at, is_public, created_via FROM oauth_clients`);
+            db.exec(`DROP TABLE oauth_clients`);
+            db.exec(`ALTER TABLE oauth_clients_new RENAME TO oauth_clients`);
+            db.exec(`CREATE INDEX IF NOT EXISTS idx_oauth_clients_user ON oauth_clients(user_id)`);
+            db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_clients_client_id ON oauth_clients(client_id)`);
+          })();
+        } finally {
+          db.exec('PRAGMA foreign_keys = ON');
+        }
+      },
+    },
   ];
 
   if (currentVersion < migrations.length) {
     for (let i = currentVersion; i < migrations.length; i++) {
       console.log(`[DB] Running migration ${i + 1}/${migrations.length}`);
       try {
-        db.transaction(() => migrations[i]())();
+        const migration = migrations[i];
+        if (typeof migration === 'function') {
+          db.transaction(migration)();
+        } else {
+          migration.raw();
+        }
       } catch (err) {
         console.error(`[migrations] FATAL: Migration ${i + 1} failed, rolled back:`, err);
         process.exit(1);

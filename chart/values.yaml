@@ -51,10 +51,10 @@ env:
   # Override the OIDC discovery endpoint for providers with non-standard paths (e.g. Authentik).
   # DEMO_MODE: "false"
   # Enable demo mode (hourly data resets).
-  # MCP_RATE_LIMIT: "60"
-  # Max MCP API requests per user per minute. Defaults to 60.
-  # MCP_MAX_SESSION_PER_USER: "5"
-  # Max concurrent MCP sessions per user. Defaults to 5.
+  # MCP_RATE_LIMIT: "300"
+  # Max MCP API requests per user per minute. Defaults to 300.
+  # MCP_MAX_SESSION_PER_USER: "20"
+  # Max concurrent MCP sessions per user. Defaults to 20.
 
 
 # Secret environment variables stored in a Kubernetes Secret.
