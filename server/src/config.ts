@@ -98,3 +98,8 @@ if (_encryptionKey) {
 }
 
 export const ENCRYPTION_KEY = _encryptionKey;
+
+// DEFAULT_LANGUAGE sets the language shown on the login page before the user
+// selects one. Only applies when the user has no saved language preference.
+// Supported values: de, en, es, fr, hu, nl, br, cs, pl, ru, zh, zh-TW, it, ar
+export const DEFAULT_LANGUAGE = process.env.DEFAULT_LANGUAGE || 'en';

@@ -51,6 +51,27 @@ export function isRtlLanguage(language: string): boolean {
   return RTL_LANGUAGES.has(language)
 }
 
+// Detects the user's preferred language from the browser/OS settings and maps
+// it to one of the supported language codes. Returns null if no match is found.
+export function detectBrowserLanguage(): string | null {
+  const browserLangs = navigator.languages?.length ? navigator.languages : [navigator.language]
+  const supported = SUPPORTED_LANGUAGES.map(l => l.value)
+
+  for (const lang of browserLangs) {
+    // Exact match (e.g. 'de', 'zh-TW')
+    if (supported.includes(lang)) return lang
+
+    // Portuguese variants → our code is 'br' (pt-BR)
+    if (lang.startsWith('pt')) return 'br'
+
+    // Prefix match (e.g. 'de-AT' → 'de', 'zh-CN' → 'zh')
+    const prefix = lang.split('-')[0]
+    if (supported.includes(prefix)) return prefix
+  }
+
+  return null
+}
+
 interface TranslationContextValue {
   t: (key: string, params?: Record<string, string | number>) => string
   language: string
