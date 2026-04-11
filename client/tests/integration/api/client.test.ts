@@ -466,18 +466,10 @@ describe('API client interceptors', () => {
   });
 
   it('FE-API-022: authApi.uploadAvatar sends multipart/form-data', async () => {
-    // jsdom's FormData ≠ undici's FormData, so Node.js's Request always
-    // serialises it as text/plain — Content-Type header checks are unreliable.
-    // MSW wraps XHR in a Proxy, so XHR prototype spies never fire. axios.create()
-    // copies prototype methods onto the instance as bound functions, so prototype
-    // spies don't fire either. Spy on the exported apiClient instance directly.
-    server.use(
-      http.post('/api/auth/avatar', () => {
-        return HttpResponse.json({ avatar_url: '/uploads/avatar.jpg' });
-      })
-    );
-
-    const postSpy = vi.spyOn(apiClient, 'post');
+    // jsdom's FormData ≠ undici's FormData — MSW body serialisation of FormData
+    // hangs under CI resource constraints. Spy + mock at the axios level to verify
+    // the correct args are passed without going through the network stack.
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ data: { avatar_url: '/uploads/avatar.jpg' } } as any);
 
     const formData = new FormData();
     formData.append('avatar', new Blob(['img'], { type: 'image/jpeg' }), 'avatar.jpg');
@@ -894,9 +886,11 @@ describe('API namespace smoke tests', () => {
   });
 
   it('backupApi.uploadRestore uploads and restores a backup', async () => {
-    server.use(http.post('/api/backup/upload-restore', () => HttpResponse.json({ ok: true })));
+    // FormData POST hangs on CI — mock at the axios level (see FE-API-022 comment).
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ data: { ok: true } } as any);
     const file = new File(['data'], 'backup.zip', { type: 'application/zip' });
     await expect(backupApi.uploadRestore(file)).resolves.toMatchObject({ ok: true });
+    postSpy.mockRestore();
   });
 
   it('backupApi.restore restores a named backup', async () => {
