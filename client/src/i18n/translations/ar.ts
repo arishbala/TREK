@@ -1097,7 +1097,6 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'budget.settlement': 'التسوية',
   'budget.settlementInfo': 'انقر على صورة العضو في بند الميزانية لتحديده باللون الأخضر — وهذا يعني أنه دفع. ثم تُظهر التسوية من يدين لمن وبكم.',
   'budget.netBalances': 'الأرصدة الصافية',
-  'budget.linkedToReservation': 'مرتبط بحجز — قم بتحرير الاسم هناك',
 
   // Files
   'files.title': 'الملفات',

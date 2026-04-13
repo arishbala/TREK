@@ -2050,14 +2050,6 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'dayplan.mobile.allAssigned': 'Alle Orte zugeordnet',
   'dayplan.mobile.noMatch': 'Kein Treffer',
   'dayplan.mobile.createNew': 'Neuen Ort erstellen',
-  'memories.notConnectedMultipleHint': 'Connect any of these photo providers: {provider_names} in Settings to be able add photos to this trip.',
-  'memories.providerUrl': 'Server URL',
-  'memories.providerApiKey': 'API Key',
-  'memories.providerUsername': 'Username',
-  'memories.providerPassword': 'Password',
-  'memories.saveError': 'Could not save {provider_name} settings',
-  'memories.selectAlbumMultiple': 'Select Album',
-  'memories.selectPhotosMultiple': 'Select Photos',
 
   // OAuth scope groups
   'oauth.scope.group.trips': 'Reisen',
