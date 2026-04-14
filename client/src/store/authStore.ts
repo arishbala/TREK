@@ -4,6 +4,8 @@ import { authApi } from '../api/client'
 import { connect, disconnect } from '../api/websocket'
 import type { User } from '../types'
 import { getApiErrorMessage } from '../types'
+import { tripSyncManager } from '../sync/tripSyncManager'
+import { clearAll } from '../db/offlineDb'
 
 interface AuthResponse {
   user: User
@@ -88,6 +90,7 @@ export const useAuthStore = create<AuthState>()(
         error: null,
       })
       connect()
+      tripSyncManager.syncAll().catch(console.error)
       return data as AuthResponse
     } catch (err: unknown) {
       const error = getApiErrorMessage(err, 'Login failed')
@@ -108,6 +111,7 @@ export const useAuthStore = create<AuthState>()(
         error: null,
       })
       connect()
+      tripSyncManager.syncAll().catch(console.error)
       return data as AuthResponse
     } catch (err: unknown) {
       const error = getApiErrorMessage(err, 'Verification failed')
@@ -128,6 +132,7 @@ export const useAuthStore = create<AuthState>()(
         error: null,
       })
       connect()
+      tripSyncManager.syncAll().catch(console.error)
       return data
     } catch (err: unknown) {
       const error = getApiErrorMessage(err, 'Registration failed')
@@ -145,6 +150,8 @@ export const useAuthStore = create<AuthState>()(
       caches.delete('api-data').catch(() => {})
       caches.delete('user-uploads').catch(() => {})
     }
+    // Purge all cached trip data from IndexedDB
+    clearAll().catch(console.error)
     set({
       user: null,
       isAuthenticated: false,

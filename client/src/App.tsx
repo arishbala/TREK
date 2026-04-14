@@ -22,6 +22,8 @@ import { TranslationProvider, useTranslation } from './i18n'
 import { authApi } from './api/client'
 import { usePermissionsStore, PermissionLevel } from './store/permissionsStore'
 import { useInAppNotificationListener } from './hooks/useInAppNotificationListener.ts'
+import { registerSyncTriggers, unregisterSyncTriggers } from './sync/syncTriggers'
+import OfflineBanner from './components/Layout/OfflineBanner'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -146,6 +148,11 @@ export default function App() {
     }
   }, [isAuthenticated])
 
+  useEffect(() => {
+    registerSyncTriggers()
+    return () => unregisterSyncTriggers()
+  }, [])
+
   const location = useLocation()
   const isSharedPage = location.pathname.startsWith('/shared/')
 
@@ -178,6 +185,7 @@ export default function App() {
   return (
     <TranslationProvider>
       <ToastContainer />
+      <OfflineBanner />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<LoginPage />} />
