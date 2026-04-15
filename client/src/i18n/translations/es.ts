@@ -870,6 +870,7 @@ const es: Record<string, string> = {
   'places.gpxError': 'Error al importar GPX',
   'places.importList': 'Importar lista',
   'places.importGoogleList': 'Lista Google',
+  'places.importNaverList': 'Lista Naver',
   'places.googleListHint': 'Pega un enlace compartido de una lista de Google Maps para importar todos los lugares.',
   'places.googleListImported': '{count} lugares importados de "{list}"',
   'places.googleListError': 'Error al importar la lista de Google Maps',

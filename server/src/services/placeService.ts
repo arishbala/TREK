@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import { db, getPlaceWithTags } from '../db/database';
 import { loadTagsByPlaceIds } from './queryHelpers';
+import { checkSsrf } from '../utils/ssrfGuard';
 import { Place } from '../types';
 
 interface PlaceWithCategory extends Place {
@@ -309,6 +310,10 @@ export async function importGoogleList(tripId: string, url: string) {
   let listId: string | null = null;
   let resolvedUrl = url;
 
+  // SSRF guard: validate user-supplied URL before fetching
+  const ssrf = await checkSsrf(url);
+  if (!ssrf.allowed) return { error: 'URL is not allowed', status: 400 };
+
   // Follow redirects for short URLs (maps.app.goo.gl, goo.gl)
   if (url.includes('goo.gl') || url.includes('maps.app')) {
     const redirectRes = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(10000) });
@@ -416,8 +421,14 @@ export async function importNaverList(
   let resolvedUrl = url;
   const limit = 20;
 
+  // SSRF guard: validate user-supplied URL before fetching
+  const ssrf = await checkSsrf(url);
+  if (!ssrf.allowed) return { error: 'URL is not allowed', status: 400 };
+
   // Resolve naver.me short links to the canonical map.naver.com folder URL.
-  if (url.includes('naver.me')) {
+  let parsedUrl: URL;
+  try { parsedUrl = new URL(url); } catch { return { error: 'Invalid URL', status: 400 }; }
+  if (parsedUrl.hostname === 'naver.me') {
     const redirectRes = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(10000) });
     resolvedUrl = redirectRes.url;
   }

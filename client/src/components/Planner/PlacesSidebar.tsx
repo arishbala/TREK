@@ -86,8 +86,8 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
   const handleListImport = async () => {
     if (!listImportUrl.trim()) return
     setListImportLoading(true)
+    const provider = listImportProvider === 'naver' && isNaverListImportEnabled ? 'naver' : 'google'
     try {
-      const provider = listImportProvider === 'naver' && isNaverListImportEnabled ? 'naver' : 'google'
       const result = provider === 'google'
         ? await placesApi.importGoogleList(tripId, listImportUrl.trim())
         : await placesApi.importNaverList(tripId, listImportUrl.trim())
@@ -105,7 +105,6 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
         })
       }
     } catch (err: any) {
-      const provider = listImportProvider === 'naver' && isNaverListImportEnabled ? 'naver' : 'google'
       toast.error(err?.response?.data?.error || t(provider === 'google' ? 'places.googleListError' : 'places.naverListError'))
     } finally {
       setListImportLoading(false)

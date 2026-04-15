@@ -123,10 +123,8 @@ router.post('/import/naver-list', authenticate, requireTripAccess, async (req: R
       return res.status(result.status).json({ error: result.error });
     }
 
-    const successResult = result as { places: any[]; listName: string };
-
-    res.status(201).json({ places: successResult.places, count: successResult.places.length, listName: successResult.listName });
-    for (const place of successResult.places) {
+    res.status(201).json({ places: result.places, count: result.places.length, listName: result.listName });
+    for (const place of result.places) {
       broadcast(tripId, 'place:created', { place }, req.headers['x-socket-id'] as string);
     }
   } catch (err: unknown) {

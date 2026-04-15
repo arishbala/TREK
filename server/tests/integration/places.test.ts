@@ -603,6 +603,106 @@ describe('Naver list import', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('Could not extract folder ID');
   });
+
+  it('POST /import/naver-list returns 502 when Naver API is unavailable', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+    const folderId = 'abc123';
+
+    testDb.prepare("UPDATE addons SET enabled = 1 WHERE id = 'naver_list_import'").run();
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/naver-list`)
+      .set('Cookie', authCookie(user.id))
+      .send({ url: `https://map.naver.com/v5/favorite/myPlace/folder/${folderId}` });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toContain('Failed to fetch list from Naver Maps');
+  });
+
+  it('POST /import/naver-list returns 400 when list is empty', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+    const folderId = 'abc123';
+
+    testDb.prepare("UPDATE addons SET enabled = 1 WHERE id = 'naver_list_import'").run();
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ folder: { name: 'Empty List', bookmarkCount: 0 }, bookmarkList: [] }),
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/naver-list`)
+      .set('Cookie', authCookie(user.id))
+      .send({ url: `https://map.naver.com/v5/favorite/myPlace/folder/${folderId}` });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('List is empty or could not be read');
+  });
+
+  it('POST /import/naver-list returns 400 when all items lack valid coordinates', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+    const folderId = 'abc123';
+
+    testDb.prepare("UPDATE addons SET enabled = 1 WHERE id = 'naver_list_import'").run();
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        folder: { name: 'No Coords', bookmarkCount: 2 },
+        bookmarkList: [
+          { name: 'Place A', px: undefined, py: undefined },
+          { name: 'Place B', px: 'not-a-number', py: 'not-a-number' },
+        ],
+      }),
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/naver-list`)
+      .set('Cookie', authCookie(user.id))
+      .send({ url: `https://map.naver.com/v5/favorite/myPlace/folder/${folderId}` });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('No places with coordinates found in list');
+  });
+
+  it('POST /import/naver-list accepts canonical map.naver.com URL without redirect fetch', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+    const folderId = 'abc123';
+
+    testDb.prepare("UPDATE addons SET enabled = 1 WHERE id = 'naver_list_import'").run();
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        folder: { name: 'Seoul', bookmarkCount: 1 },
+        bookmarkList: [{ name: 'Gyeongbokgung', px: 126.9770, py: 37.5796, memo: null, address: 'Sejongno Seoul' }],
+      }),
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/naver-list`)
+      .set('Cookie', authCookie(user.id))
+      .send({ url: `https://map.naver.com/v5/favorite/myPlace/folder/${folderId}` });
+
+    expect(res.status).toBe(201);
+    expect(res.body.count).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
