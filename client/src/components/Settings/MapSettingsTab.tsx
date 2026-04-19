@@ -71,6 +71,7 @@ function TagChip({ tag }: { tag: string }) {
 }
 
 function StyleDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -94,7 +95,7 @@ function StyleDropdown({ value, onChange }: { value: string; onChange: (v: strin
       >
         <span className="flex items-center gap-2 min-w-0">
           <span className="text-slate-900 dark:text-white truncate">
-            {selected ? selected.name : 'Select a Mapbox style'}
+            {selected ? selected.name : t('settings.mapStylePlaceholder')}
           </span>
           {selected && (
             <span className="flex items-center gap-1 flex-shrink-0">
@@ -213,7 +214,7 @@ export default function MapSettingsTab(): React.ReactElement {
     <Section title={t('settings.map')} icon={Map}>
       {/* Provider picker — big cards so the choice is obvious */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">Map Provider</label>
+        <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.mapProvider')}</label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -227,7 +228,7 @@ export default function MapSettingsTab(): React.ReactElement {
             <Layers size={18} className="mt-0.5 flex-shrink-0 text-slate-700 dark:text-slate-300" />
             <div>
               <div className="text-sm font-medium text-slate-900 dark:text-white">Leaflet</div>
-              <div className="text-xs text-slate-500 mt-0.5">Classic 2D, any raster tiles</div>
+              <div className="hidden sm:block text-xs text-slate-500 mt-0.5">{t('settings.mapLeafletSubtitle')}</div>
             </div>
           </button>
           <button
@@ -240,17 +241,17 @@ export default function MapSettingsTab(): React.ReactElement {
             }`}
           >
             <span className="absolute top-2 right-2 text-[9px] font-semibold tracking-wide uppercase px-1.5 py-[3px] rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 leading-none">
-              Experimental
+              {t('settings.mapExperimental')}
             </span>
             <Box size={18} className="mt-0.5 flex-shrink-0 text-slate-700 dark:text-slate-300" />
             <div>
               <div className="text-sm font-medium text-slate-900 dark:text-white">Mapbox GL</div>
-              <div className="text-xs text-slate-500 mt-0.5">Vector tiles, 3D buildings & terrain</div>
+              <div className="hidden sm:block text-xs text-slate-500 mt-0.5">{t('settings.mapMapboxSubtitle')}</div>
             </div>
           </button>
         </div>
         <p className="text-xs text-slate-400 mt-2">
-          Affects Trip Planner and Journey maps. Atlas always uses Leaflet.
+          {t('settings.mapProviderHint')}
         </p>
       </div>
 
@@ -281,7 +282,7 @@ export default function MapSettingsTab(): React.ReactElement {
       {provider === 'mapbox-gl' && (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Mapbox Access Token</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('settings.mapMapboxToken')}</label>
             <input
               type="text"
               value={mapboxToken}
@@ -290,15 +291,15 @@ export default function MapSettingsTab(): React.ReactElement {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-slate-400 focus:border-transparent"
             />
             <p className="text-xs text-slate-400 mt-1">
-              Public token (pk.*) from{' '}
+              {t('settings.mapMapboxTokenHint')}{' '}
               <a href="https://account.mapbox.com/access-tokens/" target="_blank" rel="noreferrer" className="underline">
-                mapbox.com → Access tokens
+                {t('settings.mapMapboxTokenLink')}
               </a>
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Map Style</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('settings.mapStyle')}</label>
             <div className="mb-2">
               <StyleDropdown value={mapboxStyle} onChange={setMapboxStyle} />
             </div>
@@ -310,7 +311,7 @@ export default function MapSettingsTab(): React.ReactElement {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-slate-400 focus:border-transparent"
             />
             <p className="text-xs text-slate-400 mt-1">
-              Preset or your own <code className="text-[11px]">mapbox://styles/USER/ID</code> URL
+              {t('settings.mapStyleHint')}
             </p>
           </div>
 
@@ -320,9 +321,9 @@ export default function MapSettingsTab(): React.ReactElement {
               : 'border-slate-200 opacity-60 dark:border-slate-700'
           }`}>
             <div className="flex-1">
-              <div className="text-sm font-medium text-slate-900 dark:text-white">3D Buildings & Terrain</div>
+              <div className="text-sm font-medium text-slate-900 dark:text-white">{t('settings.map3dBuildings')}</div>
               <div className="text-xs text-slate-500 mt-0.5">
-                Pitch + real 3D building extrusions — works on every style, including satellite.
+                {t('settings.map3dHint')}
               </div>
             </div>
             <ToggleSwitch
@@ -333,22 +334,22 @@ export default function MapSettingsTab(): React.ReactElement {
 
           <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex-1">
-              <div className="text-sm font-medium text-slate-900 dark:text-white flex items-center gap-2">
-                High Quality Mode
-                <span className="text-[9px] font-semibold tracking-wide uppercase px-1.5 py-[3px] rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 leading-none">
-                  Experimental
+              <div className="text-sm font-medium text-slate-900 dark:text-white flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+                <span className="order-2 sm:order-1">{t('settings.mapHighQuality')}</span>
+                <span className="order-1 sm:order-2 text-[9px] font-semibold tracking-wide uppercase px-1.5 py-[3px] rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 leading-none">
+                  {t('settings.mapExperimental')}
                 </span>
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
-                Antialiasing + globe projection for sharper edges and a realistic world view.{' '}
-                <span className="text-amber-600 dark:text-amber-400">May impact performance on lower-end devices.</span>
+                {t('settings.mapHighQualityHint')}{' '}
+                <span className="text-amber-600 dark:text-amber-400">{t('settings.mapHighQualityWarning')}</span>
               </div>
             </div>
             <ToggleSwitch on={mapboxQuality} onToggle={() => setMapboxQuality(!mapboxQuality)} />
           </div>
 
           <div className="text-xs text-slate-400 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            <strong className="text-slate-600 dark:text-slate-300">Tip:</strong> right-click and drag to rotate/pitch the map. Middle-click to add a place (right-click is reserved for rotation).
+            <strong className="text-slate-600 dark:text-slate-300">{t('settings.mapTipLabel')}</strong> {t('settings.mapTip')}
           </div>
         </div>
       )}
