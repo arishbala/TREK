@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 
+const isTestEnv = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent ?? '')
+
 // Zählt beim Mount von 0 auf target hoch. Feste Dauer mit ease-out-quint.
 export function useCountUp(target: number, duration = 800): number {
-  const [value, setValue] = useState(0)
+  const [value, setValue] = useState(() => isTestEnv || target <= 0 ? target : 0)
   const startRef = useRef<number | null>(null)
   const frameRef = useRef<number | null>(null)
 
   useEffect(() => {
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
-    const isJsdom = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent ?? '')
-    if (reduced || isJsdom || target <= 0) { setValue(target); return }
+    if (reduced || isTestEnv || target <= 0) { setValue(target); return }
 
     startRef.current = null
     const step = (now: number) => {
