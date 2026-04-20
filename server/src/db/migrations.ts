@@ -1906,17 +1906,36 @@ function runMigrations(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_day_accommodations_end_day_id ON day_accommodations(end_day_id);
       `);
     },
-    // Migration: backfill remaining legacy Google photo URLs missed by Migration 107.
-    // Migration 107 matched /places/%/photos/% only; lh3.googleusercontent.com URLs use
-    // /place-photos/ or /places/<opaque-id> paths and were skipped. Rewrite any remaining
-    // google-hosted URL to the stable proxy form using the row's google_place_id.
+    // Migration: null out proxy image_url entries that have no backing disk cache.
+    // Migrations 107 and the migration below wrote /api/maps/place-photo/<id>/bytes
+    // into places.image_url without actually fetching/caching the photo bytes. The
+    // photoService short-circuits on that prefix and hits /bytes directly → 404.
+    // Rows with a confirmed disk cache entry in google_place_photo_meta are left alone;
+    // only stale proxy URLs (never actually fetched) are cleared so the normal
+    // fetch-and-cache flow can repopulate them.
     () => {
       db.exec(`
         UPDATE places
-        SET image_url   = '/api/maps/place-photo/' || google_place_id || '/bytes',
+        SET image_url = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE image_url LIKE '/api/maps/place-photo/%/bytes'
+          AND google_place_id IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM google_place_photo_meta
+            WHERE place_id = places.google_place_id
+              AND error_at IS NULL
+          )
+      `);
+    },
+    // Migration: clear legacy Google photo URLs missed by Migration 107.
+    // Migration 107 matched /places/%/photos/% only; lh3.googleusercontent.com URLs use
+    // /place-photos/ or /places/<opaque-id> paths and were skipped. NULL those stale URLs
+    // so the normal fetch-and-cache flow repopulates image_url with a real proxy URL.
+    () => {
+      db.exec(`
+        UPDATE places
+        SET image_url   = NULL,
             updated_at  = CURRENT_TIMESTAMP
-        WHERE google_place_id IS NOT NULL
-          AND image_url IS NOT NULL
+        WHERE image_url IS NOT NULL
           AND image_url != ''
           AND image_url NOT LIKE '/api/maps/place-photo/%'
           AND (
