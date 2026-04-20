@@ -8,9 +8,10 @@ import { getCached, isLoading, fetchPhoto, onThumbReady, getAllThumbs } from '..
 import { CATEGORY_ICON_MAP } from '../shared/categoryIcons'
 import { isStandardFamily, supportsCustom3d, wantsTerrain, addCustom3dBuildings, addTerrainAndSky } from './mapboxSetup'
 import { attachLocationMarker, type LocationMarkerHandle } from './locationMarkerMapbox'
+import { ReservationMapboxOverlay } from './reservationsMapbox'
 import LocationButton from './LocationButton'
 import { useGeolocation } from '../../hooks/useGeolocation'
-import type { Place } from '../../types'
+import type { Place, Reservation } from '../../types'
 
 function categoryIconSvg(iconName: string | null | undefined, size: number): string {
   const IconComponent = (iconName && CATEGORY_ICON_MAP[iconName]) || CATEGORY_ICON_MAP['MapPin']
@@ -44,6 +45,10 @@ interface Props {
   rightWidth?: number
   hasInspector?: boolean
   hasDayDetail?: boolean
+  reservations?: Reservation[]
+  visibleConnectionIds?: number[]
+  showReservationStats?: boolean
+  onReservationClick?: (reservationId: number) => void
 }
 
 function createMarkerElement(place: Place & { category_color?: string; category_icon?: string }, photoUrl: string | null, orderNumbers: number[] | null, selected: boolean): HTMLDivElement {
@@ -139,17 +144,28 @@ export function MapViewGL({
   rightWidth = 0,
   hasInspector = false,
   hasDayDetail = false,
+  reservations = [],
+  visibleConnectionIds = [],
+  showReservationStats = false,
+  onReservationClick,
 }: Props) {
   const mapboxStyle = useSettingsStore(s => s.settings.mapbox_style || 'mapbox://styles/mapbox/standard')
   const mapboxToken = useSettingsStore(s => s.settings.mapbox_access_token || '')
   const mapbox3d = useSettingsStore(s => s.settings.mapbox_3d_enabled !== false)
   const mapboxQuality = useSettingsStore(s => s.settings.mapbox_quality_mode === true)
+  const showEndpointLabels = useSettingsStore(s => s.settings.map_booking_labels) !== false
   const placesPhotosEnabled = useAuthStore(s => s.placesPhotosEnabled)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>(getAllThumbs)
+  const [mapReady, setMapReady] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<Map<number, mapboxgl.Marker>>(new Map())
   const locationMarkerRef = useRef<LocationMarkerHandle | null>(null)
+  const reservationOverlayRef = useRef<ReservationMapboxOverlay | null>(null)
+  // Refs so the reservation overlay always sees the latest callback /
+  // options without forcing a full overlay rebuild on every prop change.
+  const onReservationClickRef = useRef(onReservationClick)
+  onReservationClickRef.current = onReservationClick
   const { position: userPosition, mode: trackingMode, error: trackingError, cycleMode: cycleTrackingMode, setMode: setTrackingMode } = useGeolocation()
   const onClickRefs = useRef({ marker: onMarkerClick, map: onMapClick, context: onMapContextMenu })
   onClickRefs.current.marker = onMarkerClick
@@ -228,6 +244,10 @@ export function MapViewGL({
           layout: { 'line-cap': 'round', 'line-join': 'round' },
         })
       }
+      // Signal that sources/layers are attached so overlay effects can
+      // safely add their own sources. Style rebuilds reset this via the
+      // cleanup below.
+      setMapReady(true)
     })
 
     map.on('click', (e) => {
@@ -299,12 +319,17 @@ export function MapViewGL({
       canvas.removeEventListener('auxclick', onAuxClick)
       markersRef.current.forEach(m => m.remove())
       markersRef.current.clear()
+      if (reservationOverlayRef.current) {
+        reservationOverlayRef.current.destroy()
+        reservationOverlayRef.current = null
+      }
       if (locationMarkerRef.current) {
         locationMarkerRef.current.destroy()
         locationMarkerRef.current = null
       }
       try { map.remove() } catch { /* noop */ }
       mapRef.current = null
+      setMapReady(false)
     }
   }, [mapboxStyle, mapboxToken, mapbox3d]) // rebuild on style changes only
 
@@ -433,6 +458,41 @@ export function MapViewGL({
     })
     src.setData({ type: 'FeatureCollection', features })
   }, [places])
+
+  // Reservation overlay — mirrors the Leaflet ReservationOverlay: great-
+  // circle arcs for flights/cruises, straight lines for trains/cars,
+  // clickable endpoint badges, rotating mid-arc stats label for flights.
+  // The overlay is a small imperative manager that owns its own source,
+  // layer, and HTML markers; it lives next to the map for the map's
+  // lifetime and is rebuilt when the style/token/3d effect rebuilds.
+  //
+  // `visibleConnectionIds` is driven by the per-reservation toggle in
+  // DayPlanSidebar — nothing is rendered until the user enables a
+  // booking's route, matching the Leaflet MapView's behaviour.
+  const visibleReservations = useMemo(() => {
+    if (!visibleConnectionIds || visibleConnectionIds.length === 0) return []
+    const set = new Set(visibleConnectionIds)
+    return reservations.filter(r => set.has(r.id))
+  }, [reservations, visibleConnectionIds])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReady) return
+    if (!reservationOverlayRef.current) {
+      reservationOverlayRef.current = new ReservationMapboxOverlay(map, {
+        showConnections: true,
+        showStats: showReservationStats,
+        showEndpointLabels,
+        onEndpointClick: (id) => onReservationClickRef.current?.(id),
+      })
+    }
+    reservationOverlayRef.current.update(visibleReservations, {
+      showConnections: true,
+      showStats: showReservationStats,
+      showEndpointLabels,
+      onEndpointClick: (id) => onReservationClickRef.current?.(id),
+    })
+  }, [visibleReservations, showReservationStats, showEndpointLabels, mapReady])
 
   // Fit bounds on fitKey change — matches the Leaflet BoundsController
   const paddingOpts = useMemo(() => {
