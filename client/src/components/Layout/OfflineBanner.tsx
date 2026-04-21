@@ -40,6 +40,22 @@ export default function OfflineBanner(): React.ReactElement | null {
   }, [])
 
   const hidden = isOnline && pendingCount === 0
+
+  // When the banner is visible, reserve space at the top of the page so it
+  // doesn't cover the nav/header. Uses a CSS var on <html> so we can offset
+  // via a global `body` rule instead of rewiring every layout.
+  useEffect(() => {
+    const root = document.documentElement
+    if (hidden) {
+      root.style.removeProperty('--offline-banner-h')
+    } else {
+      // 32px for icon+text row + the top safe-area inset that the banner adds
+      // in its own padding. Kept in one place so it's easy to tweak.
+      root.style.setProperty('--offline-banner-h', 'calc(env(safe-area-inset-top, 0px) + 32px)')
+    }
+    return () => { root.style.removeProperty('--offline-banner-h') }
+  }, [hidden])
+
   if (hidden) return null
 
   const offline = !isOnline
